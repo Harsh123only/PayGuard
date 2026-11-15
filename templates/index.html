@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayGuard | ACID Double-Entry Ledger & Scikit-learn Fraud Engine</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070b14;
+      --panel: #0f172a;
+      --border: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --emerald: #10b981;
+      --blue: #3b82f6;
+      --amber: #f59e0b;
+      --crimson: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding-bottom: 40px; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    header {
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(10px);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 1.35rem; font-weight: 800; }
+    .brand-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--emerald);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .sim-bar { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.82rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+    }
+    .btn-emerald { background: var(--emerald); color: #052e16; }
+    .btn-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.4); }
+    .btn-red { background: rgba(239, 68, 68, 0.16); color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+    .container { max-width: 1440px; margin: 22px auto; padding: 0 24px; }
+
+    /* KPI Strip */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+    .kpi {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    .kpi-label { font-size: 0.76rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .kpi-val { font-size: 1.65rem; font-weight: 800; margin-top: 6px; }
+
+    /* Wallets & Transfer Grid */
+    .top-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; margin-bottom: 22px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .card h2 { font-size: 1.05rem; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+
+    .wallet-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .wallet-box {
+      background: #090f1d;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .wallet-box.frozen { border-color: var(--crimson); background: rgba(239, 68, 68, 0.06); }
+    .iban { font-size: 0.75rem; color: var(--muted); margin: 4px 0 10px; }
+    .w-bal { font-size: 1.35rem; font-weight: 800; color: #fff; }
+    .status-pill {
+      font-size: 0.7rem; padding: 2px 8px; border-radius: 6px; font-weight: 700;
+    }
+    .status-ACTIVE { background: rgba(16,185,129,0.15); color: var(--emerald); }
+    .status-FROZEN { background: rgba(239,68,68,0.2); color: var(--crimson); }
+
+    /* Form */
+    .field { margin-bottom: 11px; }
+    .field label { display: block; font-size: 0.76rem; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+    .field select, .field input {
+      width: 100%; background: #070b14; border: 1px solid var(--border); color: #fff;
+      padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;
+    }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .banner {
+      padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; font-size: 0.86rem; font-weight: 600; display: none;
+    }
+
+    /* Bottom Tables */
+    .bottom-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; color: var(--muted); font-size: 0.72rem; text-transform: uppercase; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    td { padding: 10px 8px; border-bottom: 1px solid rgba(30, 41, 59, 0.6); }
+    .score-high { color: var(--crimson); font-weight: 800; }
+    .score-low { color: var(--emerald); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      🛡️ PayGuard <span style="color:#60a5fa;">Core</span>
+      <span class="brand-badge" id="acidBadge">ACID Double-Entry Integrity: VERIFIED (€0.00 Net)</span>
+    </div>
+    <div class="sim-bar">
+      <button class="btn btn-emerald" onclick="simulateNormalTransfer()">⚡ Simulate Normal SEPA (€140)</button>
+      <button class="btn btn-blue" onclick="simulateIdempotentReplay()">🔁 Test Idempotency Replay Guard</button>
+      <button class="btn btn-red" onclick="simulateFraudAttack()">🚨 Simulate Fraud Drain Attack (€9,500)</button>
+      <a href="/admin/" target="_blank" class="btn" style="background:#1e293b; color:#fff; text-decoration:none;">⚙️ Admin</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="alertBanner" class="banner"></div>
+
+    <!-- KPI Row -->
+    <section class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Total ACID Settled Volume</div>
+        <div class="kpi-val mono" id="kpiVolume">€0.00</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Double-Entry Book Sum (Must = 0.00)</div>
+        <div class="kpi-val mono" style="color:var(--emerald);" id="kpiNetSum">€0.00</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">AI Blocked Fraud Attempts</div>
+        <div class="kpi-val mono" style="color:var(--crimson);" id="kpiBlocked">0</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">ML Fraud Engine Model</div>
+        <div class="kpi-val" style="font-size:1.05rem; margin-top:12px; color:#60a5fa;">RandomForest + IsolationForest</div>
+      </div>
+    </section>
+
+    <!-- Wallets & Live Transfer Console -->
+    <section class="top-grid">
+      <div class="card">
+        <h2>
+          <span>🏦 European SEPA Multi-Wallet Vaults (Row-Level Locked)</span>
+          <span style="font-size:0.75rem; color:var(--muted);">select_for_update() Active</span>
+        </h2>
+        <div class="wallet-grid" id="walletGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>
+          <span>💸 Execute SEPA Instant Transfer</span>
+          <button class="btn btn-blue" style="padding:4px 8px; font-size:0.72rem;" onclick="generateNewIdempotencyKey()">New Key</button>
+        </h2>
+
+        <div class="row-2">
+          <div class="field">
+            <label>Sender Wallet (DEBIT)</label>
+            <select id="senderSelect"></select>
+          </div>
+          <div class="field">
+            <label>Receiver Wallet (CREDIT)</label>
+            <select id="receiverSelect"></select>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label>Amount (EUR)</label>
+            <input type="number" id="txAmount" value="250.00" step="10" />
+          </div>
+          <div class="field">
+            <label>Origin Country (Geo Check)</label>
+            <select id="txCountry">
+              <option value="DE">🇩🇪 Germany (DE - Home)</option>
+              <option value="RU">🌍 Foreign Geo Mismatch (High Risk)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label>Device Fingerprint</label>
+            <select id="txDevice">
+              <option value="web-berlin-chrome">Trusted Chrome (Berlin)</option>
+              <option value="unrecognized-tor-node">Unrecognized Tor Proxy</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Idempotency-Key (UUID)</label>
+            <input type="text" class="mono" id="idempotencyKey" readonly />
+          </div>
+        </div>
+
+        <button class="btn btn-emerald" style="width:100%; padding:11px; margin-top:6px;" onclick="submitTransfer(true)">
+          Lock Rows, Score Fraud & Execute ACID Transfer
+        </button>
+      </div>
+    </section>
+
+    <!-- Transaction Stream & Double-Entry Ledger Book -->
+    <section class="bottom-grid">
+      <div class="card">
+        <h2><span>🧠 Real-Time Scikit-learn Fraud Evaluation Stream</span></h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Route</th>
+              <th>Amount</th>
+              <th>ML Risk Score</th>
+              <th>AI Verdict & Reason</th>
+            </tr>
+          </thead>
+          <tbody id="txTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2><span>📒 Immutable Double-Entry General Ledger (DEBIT / CREDIT)</span></h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Wallet</th>
+              <th>Type</th>
+              <th>Entry</th>
+              <th>Balance After</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let lastUsedIdempotencyKey = '';
+
+    function generateNewIdempotencyKey() {
+      const key = 'idem-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now().toString(36);
+      document.getElementById('idempotencyKey').value = key;
+      return key;
+    }
+
+    function showBanner(msg, color) {
+      const b = document.getElementById('alertBanner');
+      b.style.display = 'block';
+      b.style.background = color === 'red' ? 'rgba(239,68,68,0.18)' : color === 'blue' ? 'rgba(59,130,246,0.18)' : 'rgba(16,185,129,0.18)';
+      b.style.border = `1px solid ${color === 'red' ? '#ef4444' : color === 'blue' ? '#3b82f6' : '#10b981'}`;
+      b.style.color = color === 'red' ? '#fca5a5' : color === 'blue' ? '#93c5fd' : '#6ee7b7';
+      b.textContent = msg;
+    }
+
+    async function loadState() {
+      const res = await fetch('/api/fintech/state/');
+      const data = await res.json();
+
+      document.getElementById('kpiVolume').textContent = `€${data.metrics.total_settled_volume.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+      document.getElementById('kpiNetSum').textContent = `€${data.metrics.double_entry_net_sum.toFixed(2)}`;
+      document.getElementById('kpiBlocked').textContent = data.metrics.blocked_fraud_count;
+
+      const wGrid = document.getElementById('walletGrid');
+      const sSel = document.getElementById('senderSelect');
+      const rSel = document.getElementById('receiverSelect');
+      const prevS = sSel.value;
+      const prevR = rSel.value;
+
+      wGrid.innerHTML = data.wallets.map(w => `
+        <div class="wallet-box ${w.status === 'FROZEN' ? 'frozen' : ''}">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:0.88rem;">${w.account_holder}</strong>
+            <span class="status-pill status-${w.status}">${w.status}</span>
+          </div>
+          <div class="iban mono">${w.iban}</div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <div class="w-bal mono">€${w.balance.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+            ${w.status === 'FROZEN'
+              ? `<button class="btn btn-emerald" style="padding:3px 8px; font-size:0.7rem;" onclick="toggleFreeze(${w.id})">Unfreeze</button>`
+              : `<button class="btn btn-red" style="padding:3px 8px; font-size:0.7rem;" onclick="toggleFreeze(${w.id})">Freeze</button>`}
+          </div>
+        </div>
+      `).join('');
+
+      if (!sSel.options.length) {
+        sSel.innerHTML = data.wallets.map(w => `<option value="${w.id}">${w.account_holder}</option>`).join('');
+        rSel.innerHTML = data.wallets.map(w => `<option value="${w.id}">${w.account_holder}</option>`).join('');
+        if (data.wallets.length > 1) rSel.selectedIndex = 1;
+      } else {
+        sSel.value = prevS;
+        rSel.value = prevR;
+      }
+
+      document.getElementById('txTableBody').innerHTML = data.transactions.map(t => `
+        <tr>
+          <td class="mono">${t.tx_reference}</td>
+          <td>${t.sender_name.split(' ')[0]} → ${t.receiver_name.split(' ')[0]} (${t.location_country})</td>
+          <td class="mono">€${t.amount.toFixed(2)}</td>
+          <td class="mono ${t.fraud_risk_score >= 72 ? 'score-high' : 'score-low'}">${t.fraud_risk_score}%</td>
+          <td>
+            <span class="status-pill status-${t.status === 'SETTLED' ? 'ACTIVE' : 'FROZEN'}">${t.status}</span>
+            <div style="font-size:0.72rem; color:var(--muted); margin-top:2px;">${t.fraud_reason}</div>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('ledgerTableBody').innerHTML = data.ledger_entries.map(e => `
+        <tr>
+          <td class="mono">${e.tx_reference}</td>
+          <td>${e.wallet_holder.split(' ')[0]}</td>
+          <td><span class="status-pill status-${e.entry_type === 'CREDIT' ? 'ACTIVE' : 'FROZEN'}">${e.entry_type}</span></td>
+          <td class="mono" style="color:${e.amount >= 0 ? '#10b981' : '#f87171'}; font-weight:700;">
+            ${e.amount >= 0 ? '+' : ''}€${e.amount.toFixed(2)}
+          </td>
+          <td class="mono">€${e.balance_after.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function submitTransfer(rotateKeyAfter = true) {
+      const payload = {
+        sender_id: document.getElementById('senderSelect').value,
+        receiver_id: document.getElementById('receiverSelect').value,
+        amount: document.getElementById('txAmount').value,
+        location_country: document.getElementById('txCountry').value,
+        device_fingerprint: document.getElementById('txDevice').value,
+        idempotency_key: document.getElementById('idempotencyKey').value,
+      };
+      lastUsedIdempotencyKey = payload.idempotency_key;
+
+      const res = await fetch('/api/fintech/transfer/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showBanner(data.error || 'Transfer rejected', 'red');
+      } else if (data.idempotent_replay) {
+        showBanner(data.message, 'blue');
+      } else if (data.status === 'BLOCKED_FRAUD') {
+        showBanner(data.message, 'red');
+      } else {
+        showBanner(data.message, 'green');
+      }
+
+      if (rotateKeyAfter) generateNewIdempotencyKey();
+      loadState();
+    }
+
+    async function toggleFreeze(walletId) {
+      await fetch(`/api/fintech/wallet/${walletId}/toggle/`, { method: 'POST' });
+      loadState();
+    }
+
+    function simulateNormalTransfer() {
+      document.getElementById('txAmount').value = '140.00';
+      document.getElementById('txCountry').value = 'DE';
+      document.getElementById('txDevice').value = 'web-berlin-chrome';
+      generateNewIdempotencyKey();
+      submitTransfer(true);
+    }
+
+    function simulateIdempotentReplay() {
+      if (!lastUsedIdempotencyKey) {
+        alert('Run at least one transfer first so we can replay its exact Idempotency-Key!');
+        return;
+      }
+      document.getElementById('idempotencyKey').value = lastUsedIdempotencyKey;
+      submitTransfer(false);
+    }
+
+    function simulateFraudAttack() {
+      document.getElementById('txAmount').value = '9500.00';
+      document.getElementById('txCountry').value = 'RU';
+      document.getElementById('txDevice').value = 'unrecognized-tor-node';
+      generateNewIdempotencyKey();
+      submitTransfer(true);
+    }
+
+    generateNewIdempotencyKey();
+    loadState();
+  </script>
+</body>
+</html>
